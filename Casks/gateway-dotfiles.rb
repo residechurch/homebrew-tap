@@ -2,11 +2,11 @@ cask "gateway-dotfiles" do
   version :latest
   sha256 :no_check
 
-  url "https://github.com/gatewaymedia/dotfiles.git",
+  url "https://github.com/residechurch/dotfiles.git",
       branch: "main"
   name "Gateway Dotfiles"
   desc "Dotfiles for Gateway Media"
-  homepage "https://github.com/gatewaymedia/dotfiles"
+  homepage "https://github.com/residechurch/dotfiles"
 
   depends_on :macos
 
