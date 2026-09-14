@@ -1,4 +1,4 @@
-require "#{HOMEBREW_TAP_DIRECTORY}/gatewaymedia/homebrew-tap/cmd/lib/dafont"
+require_relative "../cmd/lib/dafont"
 
 cask "font-tt-ramillas" do
   version "20230220"
