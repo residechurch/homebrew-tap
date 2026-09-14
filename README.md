@@ -5,6 +5,6 @@ Includes casks for Blackmagic Design software.
 
 ## How do I install these casks?
 
-`brew install gateway-media/tap/<cask>`
+`brew install residechurch/tap/<cask>`
 
-Or `brew tap gateway-media/tap` and then `brew install <cask>`.
+Or `brew tap residechurch/tap` and then `brew install <cask>`.
