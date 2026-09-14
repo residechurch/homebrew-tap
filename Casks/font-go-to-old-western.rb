@@ -1,4 +1,4 @@
-require "#{HOMEBREW_TAP_DIRECTORY}/gatewaymedia/homebrew-tap/cmd/lib/dafont"
+require_relative "../cmd/lib/dafont"
 
 cask "font-go-to-old-western" do
   version "20250224"
