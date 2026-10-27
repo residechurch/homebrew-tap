@@ -36,5 +36,5 @@ cask "gateway-dotfiles" do
     run "/usr/bin/defaults", args: ["import", "eu.exelban.Stats", "{{staged_path}}/.stats.json"]
   end
 
-  # No zap stanza required
+  zap :not_required
 end

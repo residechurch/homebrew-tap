@@ -43,5 +43,5 @@ cask "font-tt-ramillas" do
   font "TT Ramillas Trial Variable Italic.ttf"
   font "TT Ramillas Trial Variable Roman.ttf"
 
-  # No zap stanza required
+  zap :not_required
 end
