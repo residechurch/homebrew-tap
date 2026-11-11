@@ -21,7 +21,6 @@ on:
 env:
   HOMEBREW_DEVELOPER: 1
   HOMEBREW_NO_AUTO_UPDATE: 1
-  HOMEBREW_NO_INSTALL_FROM_API: 1
   HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
 
 concurrency:
@@ -42,7 +41,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # 2026.10.26.1
         with:
           core: false
-          cask: true
+          cask: false
 
       - name: Check out Pull Request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,6 +73,13 @@ jobs:
     name: ${{ matrix.name }}
     needs: generate-matrix
     runs-on: ${{ matrix.runner }}
+    # The matrix sets ghcr.io/homebrew/brew:main on Linux, which tracks the same
+    # brew main that setup-homebrew installs on every other runner.
+    container: ${{ matrix.container || null }} # zizmor: ignore[unpinned-images]
+    # Without this, steps in a container run under `sh`, which can't parse bash arrays.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -84,7 +90,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # 2026.10.26.1
         with:
           core: false
-          cask: true
+          cask: false
           stable: ${{ matrix.stable || false }}
 
       - name: Enable debug mode
@@ -137,18 +143,24 @@ jobs:
       - name: Run brew fetch --cask ${{ matrix.cask.token }}
         id: fetch
         run: |
-          brew fetch --cask --retry --force ${{ join(matrix.fetch_args, ' ') }} '${{ matrix.cask.path }}'
+          brew fetch --cask --retry --force ${{ join(matrix.fetch_args, ' ') }} 'residechurch/tap/${{ matrix.cask.token }}'
         timeout-minutes: 30
         if: >
           always() &&
           contains(fromJSON('["success", "skipped"]'), steps.tap-syntax.outcome) &&
           matrix.cask
 
+      # In `matrix.container` the tap is a separate checkout, not the workspace,
+      # so `brew cask-ci` needs the cask's path inside the tap.
       - name: Gather cask information
         id: info
         env:
           CASK_PATH: ${{ matrix.cask.path }}
-        run: brew cask-ci info "$CASK_PATH"
+          TAP: ${{ matrix.tap }}
+        run: |
+          tap_cask_path="$(brew --repository "$TAP")/${CASK_PATH#./}"
+          echo "TAP_CASK_PATH=$tap_cask_path" >> "$GITHUB_ENV"
+          brew cask-ci info "$tap_cask_path"
         if: always() && steps.fetch.outcome == 'success' && matrix.cask
 
       - name: Install formula dependencies
@@ -187,7 +199,7 @@ jobs:
 
       - name: Run brew uninstall --cask --force --zap ${{ matrix.cask.token }}
         run: |
-          brew uninstall --cask --force --zap '${{ matrix.cask.path }}'
+          brew uninstall --cask --force --zap 'residechurch/tap/${{ matrix.cask.token }}'
         if: always() && steps.info.outcome == 'success'
         timeout-minutes: 30
 
@@ -198,7 +210,7 @@ jobs:
 
       - name: Run brew install --cask ${{ matrix.cask.token }}
         id: install
-        run: brew install --cask '${{ matrix.cask.path }}'
+        run: brew install --cask 'residechurch/tap/${{ matrix.cask.token }}'
         if: >
           always() && steps.info.outcome == 'success' &&
           fromJSON(steps.info.outputs.macos_requirement_satisfied) &&
@@ -206,7 +218,7 @@ jobs:
         timeout-minutes: 30
 
       - name: Check for missing zap paths
-        run: brew cask-ci zap-check '${{ matrix.cask.path }}'
+        run: brew cask-ci zap-check "$TAP_CASK_PATH"
         if: >
           always() &&
           steps.install.outcome == 'success' &&
@@ -215,7 +227,7 @@ jobs:
         timeout-minutes: 10
 
       - name: Run brew uninstall --cask ${{ matrix.cask.token }}
-        run: brew uninstall --cask '${{ matrix.cask.path }}'
+        run: brew uninstall --cask 'residechurch/tap/${{ matrix.cask.token }}'
         if: always() && steps.install.outcome == 'success' && !fromJSON(steps.info.outputs.manual_installer)
         timeout-minutes: 30
 
@@ -238,17 +250,15 @@ jobs:
       # Mirrors `brew cask-ci check`, but drops entries declared in
       # `.github/cask_check_exceptions.json` from the "after" snapshot first.
       - name: Compare installed and running apps and services with snapshot (macOS only)
-        env:
-          CASK_PATH: ${{ matrix.cask.path }}
         run: |
-          brew ruby -- - "$CASK_PATH" <<'EOF'
+          brew ruby -- - "$TAP_CASK_PATH" <<'EOF'
             require "json"
             require "cask/cask_loader"
             require "cask/ci/check"
             require "utils/github/actions"
 
             cask_path = ARGV.fetch(0)
-            cask = Cask::CaskLoader.load(cask_path)
+            cask = Cask::CaskLoader.from_tap_path(cask_path)
 
             exceptions_file = Pathname(ENV.fetch("GITHUB_WORKSPACE"))/".github/cask_check_exceptions.json"
             exceptions = Hash.new { |hash, key| hash[key] = [] }
