@@ -22,6 +22,28 @@ cask "gateway-printer-driver" do
 
   pkg "TOSHIBA ColorMFP.pkg"
 
+  # Toshiba ships `*DefaultColorType: Color`, which the printer bills as colour on every page,
+  # even black ones. Default new queues and the ones already set up to Auto instead.
+  postflight_steps do
+    run "/bin/sh",
+        args: [
+          "-c",
+          <<~'SH',
+            for f in /Library/Printers/PPDs/Contents/Resources/TOSHIBA_ColorMFP*.gz; do
+              gzip -dc "$f" | sed 's/^\*DefaultColorType: Color/*DefaultColorType: Auto/' | gzip -9 > "$f.tmp" &&
+                cat "$f.tmp" > "$f"
+              rm -f "$f.tmp"
+            done
+            for q in $(lpstat -v 2>/dev/null | sed -n 's/^device for \([^:]*\):.*/\1/p'); do
+              grep -q '^\*NickName: "TOSHIBA ColorMFP' "/etc/cups/ppd/$q.ppd" 2>/dev/null &&
+                lpadmin -p "$q" -o ColorType=Auto
+            done
+            true
+          SH
+        ],
+        sudo: true
+  end
+
   uninstall pkgutil: "com.toshiba.pde.x7.colormfp",
             delete:  [
               "/Library/Printers/PPDs/Contents/Resources/TOSHIBA_ColorMFP*.gz",
