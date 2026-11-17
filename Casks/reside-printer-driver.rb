@@ -1,5 +1,5 @@
-cask "gateway-printer-driver" do
-  version "7.119.4.0,21839"
+cask "reside-printer-driver" do
+  version "7.119.4.0,21839,1"
   sha256 "c20a8530a4d2af18d9449c800e41cd022faadc229c27201ebf4600a13e946956"
 
   url "https://business.toshiba.com/downloads/KB/f1Ulds/#{version.csv.second}/TOSHIBA_ColorMFP.dmg.gz"
@@ -13,7 +13,7 @@ cask "gateway-printer-driver" do
       match = page.match(/"TOSHIBA_ColorMFP.dmg.gz",.*?"id":"(\d+)",.*?"versionName":"(\d+(?:\.\d+)+)",/)
       next if match.blank?
 
-      "#{match[2]},#{match[1]}"
+      "#{match[2]},#{match[1]},1"
     end
   end
 
